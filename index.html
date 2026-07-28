@@ -209,7 +209,7 @@
   <script>
     let selectedImageBase64 = null;
 
-    // 페이지 진입 시 저장되어 있던 단어 불러오기
+    // 페이지 진입 시 저장되어 있던 단어 목록 불러오기
     window.addEventListener('DOMContentLoaded', () => {
       loadVocaFromStorage();
     });
@@ -307,7 +307,7 @@
           return;
         }
 
-        // 💡 새 단어 추가 및 브라우저 저장소에 보관
+        // 새로운 단어를 브라우저 저장소에 누적 보관
         saveVocaToStorage(data.result);
 
       } catch (err) {
@@ -349,7 +349,7 @@
           return;
         }
 
-        // 💡 새 단어 추가 및 브라우저 저장소에 보관
+        // 새로운 단어를 브라우저 저장소에 누적 보관
         saveVocaToStorage(data.result);
 
       } catch (err) {
@@ -359,27 +359,17 @@
       }
     }
 
-    // -------------------------------------------------------------
-    // 💾 localStorage 브라우저 저장소 로직
-    // -------------------------------------------------------------
-
-    // 1. 단어 추가 및 저장
+    // --- localStorage 저장 로직 ---
     function saveVocaToStorage(newWords) {
       if (!Array.isArray(newWords)) return;
 
       const existing = JSON.parse(localStorage.getItem('smart_voca_list') || '[]');
-      
-      // 기존 단어 목록의 앞에 새로운 단어들을 추가 (최신순)
       const updated = [...newWords, ...existing];
       
-      // localStorage에 JSON 문자열 형태로 저장
       localStorage.setItem('smart_voca_list', JSON.stringify(updated));
-      
-      // 화면 업데이트
       renderVocaCards(updated);
     }
 
-    // 2. 저장된 단어 불러오기
     function loadVocaFromStorage() {
       const saved = localStorage.getItem('smart_voca_list');
       if (saved) {
@@ -394,7 +384,6 @@
       }
     }
 
-    // 3. 단어장 전체 비우기
     function clearVocaStorage() {
       if (confirm('저장된 모든 단어를 삭제하시겠습니까?')) {
         localStorage.removeItem('smart_voca_list');
