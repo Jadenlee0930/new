@@ -282,9 +282,8 @@
         return;
       }
 
-      // 제목 입력받기
       const title = prompt('저장할 단어장의 제목을 입력하세요:', '사진 추출 단어장');
-      if (title === null) return; // 취소 시 중단
+      if (title === null) return;
 
       showLoading('사진 용량을 최적화하여 AI가 글자를 읽는 중입니다...');
 
@@ -340,9 +339,15 @@
       }
     }
 
-    // -------------------------------------------------------------
-    // 💾 폴더(세트) 단위 localStorage 저장 및 관리 로직
-    // -------------------------------------------------------------
+    // 날짜 포맷팅 에러 원인 함수 수정 (안전한 문자열 조합 방식)
+    function getFormattedDate() {
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      return `${month}월 ${day}일 ${hours}:${minutes}`;
+    }
 
     function saveFolderToStorage(title, words) {
       if (!Array.isArray(words) || words.length === 0) {
@@ -353,13 +358,12 @@
       const folders = JSON.parse(localStorage.getItem('smart_voca_folders') || '[]');
       
       const newFolder = {
-        id: Date.now(), // 고유 ID
+        id: Date.now(),
         title: title,
-        date: new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', hour: '2digit', minute: '2digit' }),
+        date: getFormattedDate(),
         words: words
       };
 
-      // 최신 생성 폴더가 맨 위로 오도록 추가
       folders.unshift(newFolder);
       localStorage.setItem('smart_voca_folders', JSON.stringify(folders));
       
@@ -367,7 +371,7 @@
     }
 
     function deleteFolder(id, event) {
-      event.stopPropagation(); // 접기/펼치기 이벤트 중단
+      event.stopPropagation();
       if (confirm('이 단어장 폴더를 삭제하시겠습니까?')) {
         let folders = JSON.parse(localStorage.getItem('smart_voca_folders') || '[]');
         folders = folders.filter(f => f.id !== id);
