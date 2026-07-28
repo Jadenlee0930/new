@@ -64,7 +64,7 @@ export default async function handler(req, res) {
 
     // 단어 개수가 많을 경우 토큰 제한을 넉넉히 주어 잘림 방지
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.1-flash-lite',
       contents: contents,
       config: {
         maxOutputTokens: count > 15 ? 4000 : 2000,
