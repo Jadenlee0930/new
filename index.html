@@ -304,15 +304,15 @@
       <button class="modal-close" onclick="closeFlashcardModal()">&times;</button>
       <h3 id="flashcard-folder-title" style="color: #9CA3AF; margin-bottom: 10px;">단어장 학습</h3>
       
-      <div class="flashcard" onclick="nextCard()">
+      <div class="flashcard" onclick="handleCardClick()">
         <div id="fc-front" class="front-text">apple</div>
-        <div class="sub-hint">👆 터치하면 바로 다음 카드로 넘어갑니다</div>
+        <div id="fc-sub-hint" class="sub-hint">👆 터치하면 한국어 뜻이 나옵니다</div>
       </div>
 
       <div class="card-controls">
         <button class="btn-action" onclick="prevCard()">⬅️ 이전</button>
         <span id="fc-counter" style="font-weight: 600; color: #E4E4E7;">1 / 10</span>
-        <button class="btn-action" onclick="nextCard()">다음 ➡️</button>
+        <button class="btn-action" onclick="nextCardDirect()">다음 ➡️</button>
       </div>
     </div>
   </div>
@@ -343,6 +343,7 @@
     // 학습 및 퀴즈용 임시 전역 변수
     let currentFolderWords = [];
     let currentCardIndex = 0;
+    let isShowingMeaning = false; // 현재 뜻을 보여주고 있는지 여부
 
     let currentQuizIndex = 0;
     let quizScore = 0;
@@ -596,6 +597,7 @@
 
       currentFolderWords = folder.words;
       currentCardIndex = 0;
+      isShowingMeaning = false;
 
       document.getElementById('flashcard-folder-title').innerText = `📇 ${folder.title} 학습 중`;
       document.getElementById('flashcard-modal').style.display = 'flex';
@@ -605,13 +607,47 @@
     function updateCardUI() {
       const item = currentFolderWords[currentCardIndex];
       const frontEl = document.getElementById('fc-front');
+      const subHintEl = document.getElementById('fc-sub-hint');
       const counterEl = document.getElementById('fc-counter');
 
-      frontEl.innerText = item.word;
+      if (!isShowingMeaning) {
+        // 영어 단어 표시 상태
+        frontEl.innerText = item.word;
+        frontEl.style.color = '#FFFFFF';
+        frontEl.style.fontSize = '2rem';
+        subHintEl.innerText = '👆 터치하면 한국어 뜻이 나옵니다';
+      } else {
+        // 한국어 뜻 표시 상태
+        frontEl.innerText = item.meaning;
+        frontEl.style.color = '#818CF8';
+        frontEl.style.fontSize = '1.6rem';
+        subHintEl.innerText = '👆 터치하면 다음 카드로 넘어갑니다';
+      }
+
       counterEl.innerText = `${currentCardIndex + 1} / ${currentFolderWords.length}`;
     }
 
-    function nextCard() {
+    function handleCardClick() {
+      if (!isShowingMeaning) {
+        // 첫 번째 클릭: 뜻 보여주기
+        isShowingMeaning = true;
+        updateCardUI();
+      } else {
+        // 두 번째 클릭: 다음 카드로 넘어가기
+        isShowingMeaning = false;
+        if (currentCardIndex < currentFolderWords.length - 1) {
+          currentCardIndex++;
+          updateCardUI();
+        } else {
+          alert('마지막 카드입니다! 처음으로 돌아갑니다.');
+          currentCardIndex = 0;
+          updateCardUI();
+        }
+      }
+    }
+
+    function nextCardDirect() {
+      isShowingMeaning = false;
       if (currentCardIndex < currentFolderWords.length - 1) {
         currentCardIndex++;
         updateCardUI();
@@ -622,7 +658,12 @@
       }
     }
 
+    function nextCard() {
+      nextCardDirect();
+    }
+
     function prevCard() {
+      isShowingMeaning = false;
       if (currentCardIndex > 0) {
         currentCardIndex--;
         updateCardUI();
