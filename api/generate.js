@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
     const genAI = new GoogleGenerativeAI(apiKey);
     
     // 💡 최신 안정 버전 모델명으로 수정
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
 
     let prompt = "";
     let contents = [];
