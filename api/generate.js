@@ -1,86 +1,373 @@
-import { GoogleGenAI } from '@google/genai';
-
-const ai = new GoogleGenAI();
-
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  try {
-    const { mode, category, image } = req.body;
-    let prompt = "";
-    let count = 10; // 기본 개수 10개
-
-    if (mode === 'ocr') {
-      prompt = `
-        첨부된 단어장 이미지에서 영단어들을 추출해줘. 
-        고등학교 1학년 수준에 맞춰 아래의 JSON 배열 형식으로만 응답해줘. (다른 설명이나 백틱 절대 금지)
-        [
-          {
-            "word": "영어단어",
-            "pos": "품사",
-            "meaning": "뜻",
-            "exampleEn": "영어 예문",
-            "exampleKo": "한국어 해석"
-          }
-        ]
-      `;
-    } else {
-      // 1. 입력된 텍스트에서 숫자 추출 (예: "30개" -> 30)
-      const match = category ? category.match(/(\d+)\s*개/) : null;
-      count = match ? parseInt(match[1]) : 10;
-
-      prompt = `
-        너는 전문 영어 단어장 생성기야.
-        주제/요청사항: "${category}"
-        
-        [지침]
-        1. 위 주제에 맞는 고등학교 1학년 수준의 영단어를 **정확히 ${count}개** 생성해라.
-        2. 반드시 아래의 JSON 배열 형식으로만 응답해라. (마크다운 백틱 \`\`\`json 등이나 다른 잡담 절대 금지)
-        
-        [
-          {
-            "word": "영어단어",
-            "pos": "품사",
-            "meaning": "뜻",
-            "exampleEn": "영어 예문",
-            "exampleKo": "한국어 해석"
-          }
-        ]
-      `;
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>단어장  - 사진 찍어 만드는 고교 필수 단어장</title>
+  <style>
+    :root {
+      --primary: #4F46E5;
+      --primary-hover: #4338CA;
+      --bg: #F9FAFB;
+      --card-bg: #FFFFFF;
+      --text: #1F2937;
+      --border: #E5E7EB;
     }
 
-    let contents = [prompt];
-    if (mode === 'ocr' && image) {
-      const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
-      contents.push({
-        inlineData: {
-          data: base64Data,
-          mimeType: 'image/jpeg'
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', system-ui, -apple-system, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding-bottom: 60px; }
+
+    header {
+      background: var(--primary);
+      color: white;
+      padding: 20px 16px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    header h1 { font-size: 1.5rem; font-weight: 700; }
+    header p { font-size: 0.875rem; opacity: 0.9; margin-top: 4px; }
+
+    main { max-width: 800px; margin: 20px auto; padding: 0 16px; }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      background: #E0E7FF;
+      padding: 6px;
+      border-radius: 12px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      background: transparent;
+      color: #3730A3;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: white;
+      color: var(--primary);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .panel { display: none; background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .panel.active { display: block; }
+
+    .upload-zone {
+      border: 2px dashed #A5B4FC;
+      border-radius: 12px;
+      padding: 30px 16px;
+      text-align: center;
+      background: #EEF2FF;
+      cursor: pointer;
+      margin-bottom: 16px;
+    }
+    .upload-zone:hover { background: #E0E7FF; }
+    .upload-zone p { margin-top: 8px; color: #4338CA; font-weight: 500; }
+
+    .preset-btns {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .preset-btn {
+      padding: 14px;
+      background: #F3F4F6;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .preset-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+    .btn-main {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #loading {
+      display: none;
+      text-align: center;
+      padding: 30px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    .spinner {
+      border: 4px solid #F3F3F3;
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 12px auto;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    .card-list { display: grid; gap: 12px; margin-top: 20px; }
+    .voca-card {
+      background: white;
+      border: 1px solid var(--border);
+      padding: 16px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .voca-header { display: flex; justify-content: space-between; align-items: center; }
+    .word-title { font-size: 1.25rem; font-weight: 700; color: #111827; }
+    .pos-badge { background: #EEF2FF; color: var(--primary); padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; }
+    .word-meaning { font-size: 1.05rem; font-weight: 600; color: #4B5563; }
+    .word-example { font-size: 0.9rem; color: #6B7280; background: #F9FAFB; padding: 8px; border-radius: 6px; margin-top: 4px; }
+    .example-ko { color: #9CA3AF; font-size: 0.85rem; }
+
+    #preview-img { max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 10px; display: none; margin-left: auto; margin-right: auto; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>📘 SmartVoca AI</h1>
+    <p>사진 찍어 옮겨적는 고교 필수 단어장</p>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('ocr', event)">📷 사진으로 단어 추출</button>
+      <button class="tab-btn" onclick="switchTab('preset', event)">📚 고교 필수 단어장</button>
+    </div>
+
+    <!-- 탭 1: 사진 OCR 모드 -->
+    <div id="panel-ocr" class="panel active">
+      <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+        <span>📸</span>
+        <p>종이 단어장/교재 사진을 클릭하여 업로드하세요</p>
+        <input type="file" id="file-input" accept="image/*" style="display:none" onchange="handleImage(event)">
+        <img id="preview-img" alt="미리보기">
+      </div>
+      <button class="btn-main" onclick="processOCR()">사진에서 단어 추출하기</button>
+    </div>
+
+    <!-- 탭 2: 고교 필수 단어 테마별 생성 -->
+    <div id="panel-preset" class="panel">
+      <p style="margin-bottom: 12px; font-weight: 600; color: #4B5563;">원하는 주제의 고교 필수 단어를 클릭하세요:</p>
+      <div class="preset-btns">
+        <div class="preset-btn" onclick="loadPreset('수능 빈출 핵심 단어')">🔥 수능 빈출 핵심</div>
+        <div class="preset-btn" onclick="loadPreset('고교 필수 다의어')">💡 필수 다의어</div>
+        <div class="preset-btn" onclick="loadPreset('학술 및 수능 독해 단어')">🎓 학술/독해 어휘</div>
+        <div class="preset-btn" onclick="loadPreset('수능 독해 접속어 및 추상어')">🧩 추상 어휘</div>
+      </div>
+    </div>
+
+    <!-- 로딩 스피너 -->
+    <div id="loading">
+      <div class="spinner"></div>
+      <p id="loading-text">AI가 분석 중입니다...</p>
+    </div>
+
+    <!-- 결과 단어장 목록 -->
+    <div id="result-container" class="card-list"></div>
+  </main>
+
+  <script>
+    let selectedImageBase64 = null;
+
+    function switchTab(tabName, evt) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(panel => panel.classList.remove('active'));
+
+      if (evt && evt.target) {
+        evt.target.classList.add('active');
+      }
+
+      if (tabName === 'ocr') {
+        document.getElementById('panel-ocr').classList.add('active');
+      } else {
+        document.getElementById('panel-preset').classList.add('active');
+      }
+    }
+
+    // 이미지 용량 리사이징 및 압축
+    function handleImage(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        const img = new Image();
+        img.src = evt.target.result;
+        img.onload = function() {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          const max_size = 1024;
+
+          if (width > height) {
+            if (width > max_size) {
+              height *= max_size / width;
+              width = max_size;
+            }
+          } else {
+            if (height > max_size) {
+              width *= max_size / height;
+              height = max_size;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          selectedImageBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          
+          const previewImg = document.getElementById('preview-img');
+          previewImg.src = selectedImageBase64;
+          previewImg.style.display = 'block';
+        };
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function processOCR() {
+      if (!selectedImageBase64) {
+        alert('먼저 단어장 사진을 업로드해 주세요!');
+        return;
+      }
+
+      showLoading('사진 용량을 최적화하여 AI가 글자를 읽는 중입니다...');
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'ocr',
+            image: selectedImageBase64
+          })
+        });
+
+        const contentType = response.headers.get('content-type');
+        let data;
+
+        if (contentType && contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          const rawText = await response.text();
+          hideLoading();
+          alert(`서버 응답 오류 [상태코드: ${response.status}]\n내용: ${rawText.substring(0, 100)}`);
+          return;
         }
+
+        hideLoading();
+
+        if (!response.ok) {
+          alert(`오류 발생 (${response.status}): ` + (data.error || '서버 오류가 발생했습니다.'));
+          return;
+        }
+
+        renderVocaCards(data.result);
+
+      } catch (err) {
+        hideLoading();
+        alert(`통신 오류 발생: ${err.message || '서버 연결 실패'}`);
+        console.error('Fetch Error:', err);
+      }
+    }
+
+    async function loadPreset(category) {
+      showLoading(`'${category}' 단어를 AI가 생성 중입니다...`);
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'preset',
+            category: category
+          })
+        });
+
+        const contentType = response.headers.get('content-type');
+        let data;
+
+        if (contentType && contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          const rawText = await response.text();
+          hideLoading();
+          alert(`서버 응답 오류 [상태코드: ${response.status}]\n내용: ${rawText.substring(0, 100)}`);
+          return;
+        }
+
+        hideLoading();
+
+        if (!response.ok) {
+          alert(`오류 발생 (${response.status}): ` + (data.error || '서버 오류가 발생했습니다.'));
+          return;
+        }
+
+        renderVocaCards(data.result);
+
+      } catch (err) {
+        hideLoading();
+        alert(`통신 오류 발생: ${err.message || '서버 연결 실패'}`);
+        console.error('Fetch Error:', err);
+      }
+    }
+
+    function renderVocaCards(vocaList) {
+      const container = document.getElementById('result-container');
+      container.innerHTML = '';
+
+      if (!Array.isArray(vocaList) || vocaList.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding: 20px; color: #6B7280;">추출되거나 생성된 단어가 없습니다.</p>';
+        return;
+      }
+
+      vocaList.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'voca-card';
+        card.innerHTML = `
+          <div class="voca-header">
+            <span class="word-title">${item.word || 'N/A'}</span>
+            <span class="pos-badge">${item.pos || '단어'}</span>
+          </div>
+          <div class="word-meaning">${item.meaning || ''}</div>
+          ${item.exampleEn ? `
+            <div class="word-example">
+              <div>💬 ${item.exampleEn}</div>
+              <div class="example-ko">${item.exampleKo || ''}</div>
+            </div>
+          ` : ''}
+        `;
+        container.appendChild(card);
       });
     }
 
-    // 단어 개수가 많을 경우 토큰 제한을 넉넉히 주어 잘림 방지
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
-      contents: contents,
-      config: {
-        maxOutputTokens: count > 15 ? 4000 : 2000,
-        temperature: 0.7,
-      }
-    });
+    function showLoading(text) {
+      document.getElementById('loading-text').innerText = text;
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('result-container').innerHTML = '';
+    }
 
-    let rawText = response.text.trim();
-    // 마크다운 코드 블록 제거
-    rawText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
-
-    const words = JSON.parse(rawText);
-    return res.status(200).json({ result: words });
-
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: err.message || '서버 오류 발생' });
-  }
-}
+    function hideLoading() {
+      document.getElementById('loading').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
