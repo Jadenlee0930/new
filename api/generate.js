@@ -1,89 +1,86 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+import { GoogleGenAI } from '@google/genai';
 
-module.exports = async function handler(req, res) {
+const ai = new GoogleGenAI();
+
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'POST 요청만 지원합니다.' });
-  }
-
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY 환경변수가 설정되지 않았습니다. Vercel Settings에서 등록해 주세요.' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
     const { mode, category, image } = req.body;
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
-
     let prompt = "";
-    let contents = [];
+    let count = 10; // 기본 개수 10개
 
     if (mode === 'ocr') {
-      if (!image) {
-        return res.status(400).json({ error: '이미지 데이터가 전달되지 않았습니다.' });
-      }
+      prompt = `
+        첨부된 단어장 이미지에서 영단어들을 추출해줘. 
+        고등학교 1학년 수준에 맞춰 아래의 JSON 배열 형식으로만 응답해줘. (다른 설명이나 백틱 절대 금지)
+        [
+          {
+            "word": "영어단어",
+            "pos": "품사",
+            "meaning": "뜻",
+            "exampleEn": "영어 예문",
+            "exampleKo": "한국어 해석"
+          }
+        ]
+      `;
+    } else {
+      // 1. 입력된 텍스트에서 숫자 추출 (예: "30개" -> 30)
+      const match = category ? category.match(/(\d+)\s*개/) : null;
+      count = match ? parseInt(match[1]) : 10;
 
+      prompt = `
+        너는 전문 영어 단어장 생성기야.
+        주제/요청사항: "${category}"
+        
+        [지침]
+        1. 위 주제에 맞는 고등학교 1학년 수준의 영단어를 **정확히 ${count}개** 생성해라.
+        2. 반드시 아래의 JSON 배열 형식으로만 응답해라. (마크다운 백틱 \`\`\`json 등이나 다른 잡담 절대 금지)
+        
+        [
+          {
+            "word": "영어단어",
+            "pos": "품사",
+            "meaning": "뜻",
+            "exampleEn": "영어 예문",
+            "exampleKo": "한국어 해석"
+          }
+        ]
+      `;
+    }
+
+    let contents = [prompt];
+    if (mode === 'ocr' && image) {
       const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
-      const imagePart = {
+      contents.push({
         inlineData: {
           data: base64Data,
           mimeType: 'image/jpeg'
         }
-      };
-
-      // 💡 모든 단어를 빠짐없이 추출하도록 프롬프트 보완
-      prompt = `이 이미지에 보이는 영어 단어 및 주요 표제어를 **하나도 빠짐없이 모두** 추출해 줘. 
-      단어가 많더라도 도중에 생략하거나 요약하지 말고 이미지 속 전체 단어 목록을 다 다뤄야 해.
-      
-      각 단어별로 품사, 정확한 한글 뜻, 그리고 수능/내신 수준의 유용한 영어 예문과 예문 해석을 함께 작성해 줘.
-      
-      응답은 반드시 다른 설명이나 마크다운 표현(예: \`\`\`json) 없이 아래 JSON 배열 형식만 출력해 줘:
-      [
-        {
-          "word": "영어단어",
-          "pos": "품사",
-          "meaning": "한글 뜻",
-          "exampleEn": "영어 예문",
-          "exampleKo": "예문 한글 해석"
-        }
-      ]`;
-
-      contents = [prompt, imagePart];
-
-    } else {
-      prompt = `'${category}' 주제에 어울리는 고등학교 수능 및 내신 필수 영어 단어 10개를 선정해 줘.
-      응답은 반드시 다른 설명 없이 아래 JSON 배열 형식으로만 출력해 줘:
-      [
-        {
-          "word": "영어단어",
-          "pos": "품사",
-          "meaning": "한글 뜻",
-          "exampleEn": "영어 예문",
-          "exampleKo": "예문 한글 해석"
-        }
-      ]`;
-
-      contents = [prompt];
+      });
     }
 
-    const result = await model.generateContent(contents);
-    const responseText = result.response.text();
-
-    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      throw new Error('AI 응답이 올바른 JSON 형식이 아닙니다.');
-    }
-
-    const parsedData = JSON.parse(jsonMatch[0]);
-
-    return res.status(200).json({ result: parsedData });
-
-  } catch (error) {
-    console.error("Vercel Server Error:", error);
-    const errorMessage = error.message || error.toString() || '알 수 없는 서버 오류';
-    
-    return res.status(500).json({
-      error: `API 호출 실패: ${errorMessage}`
+    // 단어 개수가 많을 경우 토큰 제한을 넉넉히 주어 잘림 방지
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: contents,
+      config: {
+        maxOutputTokens: count > 15 ? 4000 : 2000,
+        temperature: 0.7,
+      }
     });
+
+    let rawText = response.text.trim();
+    // 마크다운 코드 블록 제거
+    rawText = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+
+    const words = JSON.parse(rawText);
+    return res.status(200).json({ result: words });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: err.message || '서버 오류 발생' });
   }
-};
+}
