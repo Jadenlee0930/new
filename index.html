@@ -202,6 +202,7 @@
       }
     }
 
+    // 사진 용량을 최대 1024px로 압축하여 통신 오류를 방지하는 함수
     function handleImage(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -252,7 +253,8 @@
       showLoading('사진 용량을 최적화하여 AI가 글자를 읽는 중입니다...');
 
       try {
-        const response = await fetch('/api/generate', {
+        // 경로 연결 문제 방지를 위한 상대 경로 사용
+        const response = await fetch('./api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -273,7 +275,7 @@
 
       } catch (err) {
         hideLoading();
-        alert('요청 중 통신 오류가 발생했습니다.');
+        alert('요청 중 통신 오류가 발생했습니다. (네트워크 상태 또는 Vercel API 서버리스 함수 상태를 확인해 주세요)');
         console.error(err);
       }
     }
@@ -282,7 +284,8 @@
       showLoading(`'${category}' 단어를 AI가 생성 중입니다...`);
 
       try {
-        const response = await fetch('/api/generate', {
+        // 경로 연결 문제 방지를 위한 상대 경로 사용
+        const response = await fetch('./api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
