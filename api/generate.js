@@ -57,13 +57,18 @@ module.exports = async function handler(req, res) {
       contents = [prompt, imagePart];
 
     } else {
-      // 💡 seed 값을 활용해 매번 완전히 다른 단어가 나오도록 강제하는 프롬프트 추가
-      const randomSeedValue = seed || Math.random();
+      // 💡 매번 완전히 다른 단어가 강제로 나오도록 무작위 문자열 및 타임스탬프 시드 조합 적용
+      const randomString = Math.random().toString(36).substring(2, 8);
+      const timeSalt = Date.now().toString().slice(-5);
+      const combinedSeed = seed || `${randomString}-${timeSalt}`;
 
-      prompt = `[매우 중요 규칙]
+      prompt = `[시스템 지시: 무작위성 최대화 및 중복 방지 절대 규칙]
       - 요청 주제: "${category}"
-      - 요청 시드 번호: ${randomSeedValue}
-      - 이전 요청들과 절대 겹치지 않도록, 해당 주제와 관련된 **완전히 새롭고 다양한 고등학교 수능 및 내신 필수 영어 단어 10개**를 무작위로 엄선해서 선정해 줘. 뻔하고 자주 나오는 단어보다는 신선하고 다채로운 단어를 골라줘.
+      - 무작위 해시 시드: ${combinedSeed}
+      
+      [매우 중요 규칙]
+      - 이전에 흔히 출제되었던 뻔한 대표 단어들(subsequent, allocate, prevalent, implement 등)은 **절대 포함하지 마세요.**
+      - 위의 해시 시드값 변화에 맞춰, 해당 주제 안에서도 **지금까지 다루지 않은 완전히 새롭고 신선한 고등학교 수능/내신 필수 영어 단어 10개**를 무작위로 엄선하여 구성해 주세요.
 
       응답은 반드시 다른 설명 없이 아래 JSON 배열 형식으로만 출력해 줘:
       [
