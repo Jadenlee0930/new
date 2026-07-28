@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SmartVoca AI - 사진 찍어 만드는 고교 필수 단어장</title>
+  <title>SmartVoca AI - 단어장 폴더 보관함</title>
   <style>
     :root {
       --primary: #4F46E5;
@@ -99,25 +99,6 @@
       cursor: pointer;
     }
 
-    .result-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 24px;
-      margin-bottom: 8px;
-    }
-    .btn-clear {
-      background: #FEE2E2;
-      color: #DC2626;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 6px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn-clear:hover { background: #FCA5A5; }
-
     #loading {
       display: none;
       text-align: center;
@@ -136,23 +117,56 @@
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    .card-list { display: grid; gap: 12px; }
-    .voca-card {
+    /* --- 단어장 폴더 스타일 --- */
+    .folder-container { display: grid; gap: 16px; margin-top: 24px; }
+    .folder-card {
       background: white;
       border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+    .folder-header {
+      background: #F8FAFC;
       padding: 16px;
-      border-radius: 12px;
       display: flex;
-      flex-direction: column;
-      gap: 6px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+    }
+    .folder-title { font-size: 1.1rem; font-weight: 700; color: #0F172A; }
+    .folder-info { font-size: 0.8rem; color: #64748B; margin-top: 4px; }
+    .btn-delete-folder {
+      background: #FEE2E2;
+      color: #DC2626;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-delete-folder:hover { background: #FCA5A5; }
+
+    .folder-content {
+      padding: 16px;
+      display: grid;
+      gap: 10px;
+      background: #FFFFFF;
+    }
+
+    .voca-card {
+      border: 1px solid #F1F5F9;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #F8FAFC;
     }
     .voca-header { display: flex; justify-content: space-between; align-items: center; }
-    .word-title { font-size: 1.25rem; font-weight: 700; color: #111827; }
-    .pos-badge { background: #EEF2FF; color: var(--primary); padding: 2px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; }
-    .word-meaning { font-size: 1.05rem; font-weight: 600; color: #4B5563; }
-    .word-example { font-size: 0.9rem; color: #6B7280; background: #F9FAFB; padding: 8px; border-radius: 6px; margin-top: 4px; }
-    .example-ko { color: #9CA3AF; font-size: 0.85rem; }
+    .word-title { font-size: 1.1rem; font-weight: 700; color: #1E293B; }
+    .pos-badge { background: #EEF2FF; color: var(--primary); padding: 2px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+    .word-meaning { font-size: 0.95rem; font-weight: 600; color: #475569; margin-top: 2px; }
+    .word-example { font-size: 0.85rem; color: #64748B; background: white; padding: 8px; border-radius: 6px; margin-top: 6px; border: 1px solid #E2E8F0; }
 
     #preview-img { max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 10px; display: none; margin-left: auto; margin-right: auto; }
   </style>
@@ -161,7 +175,7 @@
 
   <header>
     <h1>📘 SmartVoca AI</h1>
-    <p>사진 찍어 옮겨적는 고교 필수 단어장</p>
+    <p>사진 찍어 보관하는 나만의 단어장</p>
   </header>
 
   <main>
@@ -198,20 +212,18 @@
       <p id="loading-text">AI가 분석 중입니다...</p>
     </div>
 
-    <!-- 결과 단어장 영역 -->
-    <div class="result-header">
-      <h3 style="font-size: 1.1rem; font-weight: 700;">내 단어장 목록</h3>
-      <button class="btn-clear" onclick="clearVocaStorage()">🗑️ 단어장 비우기</button>
+    <!-- 내 단어장 보관함 (폴더 목록) -->
+    <div style="margin-top: 28px;">
+      <h3 style="font-size: 1.2rem; font-weight: 700;">📂 저장된 단어장 목록</h3>
+      <div id="folder-container" class="folder-container"></div>
     </div>
-    <div id="result-container" class="card-list"></div>
   </main>
 
   <script>
     let selectedImageBase64 = null;
 
-    // 페이지 진입 시 저장되어 있던 단어 목록 불러오기
     window.addEventListener('DOMContentLoaded', () => {
-      loadVocaFromStorage();
+      renderFolders();
     });
 
     function switchTab(tabName, evt) {
@@ -244,15 +256,9 @@
           const max_size = 1024;
 
           if (width > height) {
-            if (width > max_size) {
-              height *= max_size / width;
-              width = max_size;
-            }
+            if (width > max_size) { height *= max_size / width; width = max_size; }
           } else {
-            if (height > max_size) {
-              width *= max_size / height;
-              height = max_size;
-            }
+            if (height > max_size) { width *= max_size / height; height = max_size; }
           }
 
           canvas.width = width;
@@ -276,147 +282,154 @@
         return;
       }
 
+      // 제목 입력받기
+      const title = prompt('저장할 단어장의 제목을 입력하세요:', '사진 추출 단어장');
+      if (title === null) return; // 취소 시 중단
+
       showLoading('사진 용량을 최적화하여 AI가 글자를 읽는 중입니다...');
 
       try {
         const response = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: 'ocr',
-            image: selectedImageBase64
-          })
+          body: JSON.stringify({ mode: 'ocr', image: selectedImageBase64 })
         });
 
-        const contentType = response.headers.get('content-type');
-        let data;
-
-        if (contentType && contentType.includes('application/json')) {
-          data = await response.json();
-        } else {
-          const rawText = await response.text();
-          hideLoading();
-          alert(`서버 응답 오류 [상태코드: ${response.status}]\n내용: ${rawText.substring(0, 100)}`);
-          return;
-        }
-
+        const data = await response.json();
         hideLoading();
 
         if (!response.ok) {
-          alert(`오류 발생 (${response.status}): ` + (data.error || '서버 오류가 발생했습니다.'));
+          alert(`오류 발생 (${response.status}): ` + (data.error || '서버 오류'));
           return;
         }
 
-        // 새로운 단어를 브라우저 저장소에 누적 보관
-        saveVocaToStorage(data.result);
+        saveFolderToStorage(title || '사진 추출 단어장', data.result);
 
       } catch (err) {
         hideLoading();
         alert(`통신 오류 발생: ${err.message || '서버 연결 실패'}`);
-        console.error('Fetch Error:', err);
       }
     }
 
     async function loadPreset(category) {
+      const title = prompt('저장할 단어장의 제목을 입력하세요:', category);
+      if (title === null) return;
+
       showLoading(`'${category}' 단어를 AI가 생성 중입니다...`);
 
       try {
         const response = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: 'preset',
-            category: category
-          })
+          body: JSON.stringify({ mode: 'preset', category: category })
         });
 
-        const contentType = response.headers.get('content-type');
-        let data;
-
-        if (contentType && contentType.includes('application/json')) {
-          data = await response.json();
-        } else {
-          const rawText = await response.text();
-          hideLoading();
-          alert(`서버 응답 오류 [상태코드: ${response.status}]\n내용: ${rawText.substring(0, 100)}`);
-          return;
-        }
-
+        const data = await response.json();
         hideLoading();
 
         if (!response.ok) {
-          alert(`오류 발생 (${response.status}): ` + (data.error || '서버 오류가 발생했습니다.'));
+          alert(`오류 발생 (${response.status}): ` + (data.error || '서버 오류'));
           return;
         }
 
-        // 새로운 단어를 브라우저 저장소에 누적 보관
-        saveVocaToStorage(data.result);
+        saveFolderToStorage(title || category, data.result);
 
       } catch (err) {
         hideLoading();
         alert(`통신 오류 발생: ${err.message || '서버 연결 실패'}`);
-        console.error('Fetch Error:', err);
       }
     }
 
-    // --- localStorage 저장 로직 ---
-    function saveVocaToStorage(newWords) {
-      if (!Array.isArray(newWords)) return;
+    // -------------------------------------------------------------
+    // 💾 폴더(세트) 단위 localStorage 저장 및 관리 로직
+    // -------------------------------------------------------------
 
-      const existing = JSON.parse(localStorage.getItem('smart_voca_list') || '[]');
-      const updated = [...newWords, ...existing];
-      
-      localStorage.setItem('smart_voca_list', JSON.stringify(updated));
-      renderVocaCards(updated);
-    }
-
-    function loadVocaFromStorage() {
-      const saved = localStorage.getItem('smart_voca_list');
-      if (saved) {
-        try {
-          const vocaList = JSON.parse(saved);
-          renderVocaCards(vocaList);
-        } catch (e) {
-          console.error("저장된 단어장 파싱 실패:", e);
-        }
-      } else {
-        renderVocaCards([]);
-      }
-    }
-
-    function clearVocaStorage() {
-      if (confirm('저장된 모든 단어를 삭제하시겠습니까?')) {
-        localStorage.removeItem('smart_voca_list');
-        renderVocaCards([]);
-      }
-    }
-
-    function renderVocaCards(vocaList) {
-      const container = document.getElementById('result-container');
-      container.innerHTML = '';
-
-      if (!Array.isArray(vocaList) || vocaList.length === 0) {
-        container.innerHTML = '<p style="text-align:center; padding: 30px; color: #9CA3AF;">저장된 단어가 없습니다.<br>사진을 찍거나 추천 단어를 선택해 보세요!</p>';
+    function saveFolderToStorage(title, words) {
+      if (!Array.isArray(words) || words.length === 0) {
+        alert('추출된 단어가 없습니다.');
         return;
       }
 
-      vocaList.forEach(item => {
-        const card = document.createElement('div');
-        card.className = 'voca-card';
-        card.innerHTML = `
-          <div class="voca-header">
-            <span class="word-title">${item.word || 'N/A'}</span>
-            <span class="pos-badge">${item.pos || '단어'}</span>
-          </div>
-          <div class="word-meaning">${item.meaning || ''}</div>
-          ${item.exampleEn ? `
-            <div class="word-example">
-              <div>💬 ${item.exampleEn}</div>
-              <div class="example-ko">${item.exampleKo || ''}</div>
+      const folders = JSON.parse(localStorage.getItem('smart_voca_folders') || '[]');
+      
+      const newFolder = {
+        id: Date.now(), // 고유 ID
+        title: title,
+        date: new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', hour: '2digit', minute: '2digit' }),
+        words: words
+      };
+
+      // 최신 생성 폴더가 맨 위로 오도록 추가
+      folders.unshift(newFolder);
+      localStorage.setItem('smart_voca_folders', JSON.stringify(folders));
+      
+      renderFolders();
+    }
+
+    function deleteFolder(id, event) {
+      event.stopPropagation(); // 접기/펼치기 이벤트 중단
+      if (confirm('이 단어장 폴더를 삭제하시겠습니까?')) {
+        let folders = JSON.parse(localStorage.getItem('smart_voca_folders') || '[]');
+        folders = folders.filter(f => f.id !== id);
+        localStorage.setItem('smart_voca_folders', JSON.stringify(folders));
+        renderFolders();
+      }
+    }
+
+    function toggleFolder(id) {
+      const contentEl = document.getElementById(`folder-content-${id}`);
+      if (contentEl.style.display === 'none') {
+        contentEl.style.display = 'grid';
+      } else {
+        contentEl.style.display = 'none';
+      }
+    }
+
+    function renderFolders() {
+      const container = document.getElementById('folder-container');
+      container.innerHTML = '';
+
+      const folders = JSON.parse(localStorage.getItem('smart_voca_folders') || '[]');
+
+      if (folders.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding: 30px; color: #9CA3AF;">저장된 단어장이 없습니다.<br>사진을 찍거나 추천 단어를 만들어 보세요!</p>';
+        return;
+      }
+
+      folders.forEach(folder => {
+        const folderEl = document.createElement('div');
+        folderEl.className = 'folder-card';
+
+        let wordsHtml = folder.words.map(item => `
+          <div class="voca-card">
+            <div class="voca-header">
+              <span class="word-title">${item.word || ''}</span>
+              <span class="pos-badge">${item.pos || '단어'}</span>
             </div>
-          ` : ''}
+            <div class="word-meaning">${item.meaning || ''}</div>
+            ${item.exampleEn ? `
+              <div class="word-example">
+                <div>💬 ${item.exampleEn}</div>
+                <div style="color:#94A3B8; font-size:0.8rem; margin-top:2px;">${item.exampleKo || ''}</div>
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+
+        folderEl.innerHTML = `
+          <div class="folder-header" onclick="toggleFolder(${folder.id})">
+            <div>
+              <div class="folder-title">📑 ${folder.title} (${folder.words.length}개 단어)</div>
+              <div class="folder-info">생성일: ${folder.date}</div>
+            </div>
+            <button class="btn-delete-folder" onclick="deleteFolder(${folder.id}, event)">삭제</button>
+          </div>
+          <div id="folder-content-${folder.id}" class="folder-content" style="display: none;">
+            ${wordsHtml}
+          </div>
         `;
-        container.appendChild(card);
+
+        container.appendChild(folderEl);
       });
     }
 
