@@ -99,6 +99,25 @@
       cursor: pointer;
     }
 
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 24px;
+      margin-bottom: 8px;
+    }
+    .btn-clear {
+      background: #FEE2E2;
+      color: #DC2626;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-clear:hover { background: #FCA5A5; }
+
     #loading {
       display: none;
       text-align: center;
@@ -117,7 +136,7 @@
     }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-    .card-list { display: grid; gap: 12px; margin-top: 20px; }
+    .card-list { display: grid; gap: 12px; }
     .voca-card {
       background: white;
       border: 1px solid var(--border);
@@ -179,12 +198,21 @@
       <p id="loading-text">AI가 분석 중입니다...</p>
     </div>
 
-    <!-- 결과 단어장 목록 -->
+    <!-- 결과 단어장 영역 -->
+    <div class="result-header">
+      <h3 style="font-size: 1.1rem; font-weight: 700;">내 단어장 목록</h3>
+      <button class="btn-clear" onclick="clearVocaStorage()">🗑️ 단어장 비우기</button>
+    </div>
     <div id="result-container" class="card-list"></div>
   </main>
 
   <script>
     let selectedImageBase64 = null;
+
+    // 페이지 진입 시 저장되어 있던 단어 불러오기
+    window.addEventListener('DOMContentLoaded', () => {
+      loadVocaFromStorage();
+    });
 
     function switchTab(tabName, evt) {
       document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -201,7 +229,6 @@
       }
     }
 
-    // 이미지 용량 리사이징 및 압축
     function handleImage(e) {
       const file = e.target.files[0];
       if (!file) return;
@@ -280,7 +307,8 @@
           return;
         }
 
-        renderVocaCards(data.result);
+        // 💡 새 단어 추가 및 브라우저 저장소에 보관
+        saveVocaToStorage(data.result);
 
       } catch (err) {
         hideLoading();
@@ -321,7 +349,8 @@
           return;
         }
 
-        renderVocaCards(data.result);
+        // 💡 새 단어 추가 및 브라우저 저장소에 보관
+        saveVocaToStorage(data.result);
 
       } catch (err) {
         hideLoading();
@@ -330,12 +359,55 @@
       }
     }
 
+    // -------------------------------------------------------------
+    // 💾 localStorage 브라우저 저장소 로직
+    // -------------------------------------------------------------
+
+    // 1. 단어 추가 및 저장
+    function saveVocaToStorage(newWords) {
+      if (!Array.isArray(newWords)) return;
+
+      const existing = JSON.parse(localStorage.getItem('smart_voca_list') || '[]');
+      
+      // 기존 단어 목록의 앞에 새로운 단어들을 추가 (최신순)
+      const updated = [...newWords, ...existing];
+      
+      // localStorage에 JSON 문자열 형태로 저장
+      localStorage.setItem('smart_voca_list', JSON.stringify(updated));
+      
+      // 화면 업데이트
+      renderVocaCards(updated);
+    }
+
+    // 2. 저장된 단어 불러오기
+    function loadVocaFromStorage() {
+      const saved = localStorage.getItem('smart_voca_list');
+      if (saved) {
+        try {
+          const vocaList = JSON.parse(saved);
+          renderVocaCards(vocaList);
+        } catch (e) {
+          console.error("저장된 단어장 파싱 실패:", e);
+        }
+      } else {
+        renderVocaCards([]);
+      }
+    }
+
+    // 3. 단어장 전체 비우기
+    function clearVocaStorage() {
+      if (confirm('저장된 모든 단어를 삭제하시겠습니까?')) {
+        localStorage.removeItem('smart_voca_list');
+        renderVocaCards([]);
+      }
+    }
+
     function renderVocaCards(vocaList) {
       const container = document.getElementById('result-container');
       container.innerHTML = '';
 
       if (!Array.isArray(vocaList) || vocaList.length === 0) {
-        container.innerHTML = '<p style="text-align:center; padding: 20px; color: #6B7280;">추출되거나 생성된 단어가 없습니다.</p>';
+        container.innerHTML = '<p style="text-align:center; padding: 30px; color: #9CA3AF;">저장된 단어가 없습니다.<br>사진을 찍거나 추천 단어를 선택해 보세요!</p>';
         return;
       }
 
@@ -362,7 +434,6 @@
     function showLoading(text) {
       document.getElementById('loading-text').innerText = text;
       document.getElementById('loading').style.display = 'block';
-      document.getElementById('result-container').innerHTML = '';
     }
 
     function hideLoading() {
