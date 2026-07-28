@@ -11,9 +11,16 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { mode, category, image } = req.body;
+    const { mode, category, image, seed } = req.body;
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
+    
+    // generationConfig에 temperature를 높여서 매번 다양한 단어가 생성되도록 설정
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-3.1-flash-lite',
+      generationConfig: {
+        temperature: 1.0, // 창의성 및 무작위성 극대화
+      }
+    });
 
     let prompt = "";
     let contents = [];
@@ -31,7 +38,6 @@ module.exports = async function handler(req, res) {
         }
       };
 
-      // 💡 모든 단어를 빠짐없이 추출하도록 프롬프트 보완
       prompt = `이 이미지에 보이는 영어 단어 및 주요 표제어를 **하나도 빠짐없이 모두** 추출해 줘. 
       단어가 많더라도 도중에 생략하거나 요약하지 말고 이미지 속 전체 단어 목록을 다 다뤄야 해.
       
@@ -51,7 +57,14 @@ module.exports = async function handler(req, res) {
       contents = [prompt, imagePart];
 
     } else {
-      prompt = `'${category}' 주제에 어울리는 고등학교 수능 및 내신 필수 영어 단어 10개를 선정해 줘.
+      // 💡 seed 값을 활용해 매번 완전히 다른 단어가 나오도록 강제하는 프롬프트 추가
+      const randomSeedValue = seed || Math.random();
+
+      prompt = `[매우 중요 규칙]
+      - 요청 주제: "${category}"
+      - 요청 시드 번호: ${randomSeedValue}
+      - 이전 요청들과 절대 겹치지 않도록, 해당 주제와 관련된 **완전히 새롭고 다양한 고등학교 수능 및 내신 필수 영어 단어 10개**를 무작위로 엄선해서 선정해 줘. 뻔하고 자주 나오는 단어보다는 신선하고 다채로운 단어를 골라줘.
+
       응답은 반드시 다른 설명 없이 아래 JSON 배열 형식으로만 출력해 줘:
       [
         {
