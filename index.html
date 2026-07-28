@@ -149,6 +149,19 @@
     }
     .folder-header:hover { background: #323238; }
     .folder-title { font-size: 1.1rem; font-weight: 700; color: #FFFFFF; }
+    
+    .folder-actions { display: flex; gap: 8px; align-items: center; }
+    .btn-action {
+      background: #374151;
+      color: #E5E7EB;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-action:hover { background: var(--primary); color: white; }
     .btn-delete-folder {
       background: #451A03;
       color: #F87171;
@@ -181,13 +194,59 @@
     .word-example { font-size: 0.85rem; color: #9CA3AF; background: #121212; padding: 8px; border-radius: 6px; margin-top: 6px; border: 1px solid #2D2D2D; }
 
     #preview-img { max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 10px; display: none; margin-left: auto; margin-right: auto; }
+
+    /* --- 모달(팝업) 스타일 (플래시카드 및 퀴즈용) --- */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      display: none; justify-content: center; align-items: center;
+      z-index: 1000; padding: 16px;
+    }
+    .modal-box {
+      background: #18181B; border: 1px solid var(--border);
+      width: 100%; max-width: 500px; border-radius: 16px;
+      padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      text-align: center; position: relative;
+    }
+    .modal-close {
+      position: absolute; top: 16px; right: 16px;
+      background: none; border: none; color: #9CA3AF; font-size: 1.5rem; cursor: pointer;
+    }
+
+    /* 플래시카드 스타일 */
+    .flashcard {
+      background: #1E1E1E; border: 2px solid var(--border);
+      height: 220px; border-radius: 16px;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      cursor: pointer; margin: 20px 0; padding: 20px;
+      transition: transform 0.3s, border-color 0.3s;
+    }
+    .flashcard:hover { border-color: var(--primary); }
+    .flashcard .front-text { font-size: 2rem; font-weight: 700; color: #FFFFFF; }
+    .flashcard .back-text { font-size: 1.5rem; font-weight: 600; color: #818CF8; display: none; margin-top: 10px; }
+    .flashcard .sub-hint { font-size: 0.85rem; color: #6B7280; margin-top: 15px; }
+
+    .card-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
+
+    /* 객관식 퀴즈 스타일 */
+    .quiz-question { font-size: 1.2rem; font-weight: 700; color: #FFFFFF; margin-bottom: 20px; text-align: left; }
+    .quiz-options { display: grid; gap: 10px; margin-bottom: 20px; }
+    .quiz-option-btn {
+      background: #27272A; border: 1px solid var(--border);
+      color: #E4E4E7; padding: 14px; border-radius: 10px;
+      font-size: 1rem; font-weight: 600; text-align: left; cursor: pointer;
+      transition: background 0.2s;
+    }
+    .quiz-option-btn:hover { background: #3F3F46; }
+    .quiz-option-btn.correct { background: #065F46 !important; border-color: #059669 !important; color: #FFFFFF; }
+    .quiz-option-btn.wrong { background: #7F1D1D !important; border-color: #DC2626 !important; color: #FFFFFF; }
   </style>
 </head>
 <body>
 
   <header>
     <h1>📘 단어장</h1>
-    <p>사진 찍어 보관하는 나만의 단어장</p>
+    <p>사진 찍어 보관하는 나만의 단어장 & 퀴즈</p>
   </header>
 
   <main>
@@ -221,7 +280,7 @@
       <!-- 직접 입력 맞춤 주제 영역 -->
       <div class="custom-topic-box">
         <p style="font-size: 0.9rem; font-weight: 600; color: #E4E4E7; margin-bottom: 8px;">✨ 원하는 스타일이나 주제가 따로 있으신가요?</p>
-        <p style="font-size: 0.8rem; color: #9CA3AF; margin-bottom: 10px;">예시: "고1 모의고사에서 자주 나오는 경제·사회 관련 어휘 뽑아줘"</p>
+        <p style="font-size: 0.8rem; color: #9CA3AF; margin-bottom: 10px;">예시: 과학에서 많이 나오는 고등학교 1학년 수준 단어 30개</p>
         <button class="btn-main" onclick="loadCustomTopic()" style="background: #27272A; border: 1px solid #4F46E5;">💬 AI에게 직접 주제 요청하기</button>
       </div>
     </div>
@@ -239,8 +298,57 @@
     </div>
   </main>
 
+  <!-- 플래시카드 모달 -->
+  <div id="flashcard-modal" class="modal-overlay">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeFlashcardModal()">&times;</button>
+      <h3 id="flashcard-folder-title" style="color: #9CA3AF; margin-bottom: 10px;">단어장 학습</h3>
+      
+      <div class="flashcard" onclick="flipCard()">
+        <div id="fc-front" class="front-text">apple</div>
+        <div id="fc-back" class="back-text">사과</div>
+        <div class="sub-hint">👆 카드를 누르면 뜻이 뒤집힙니다</div>
+      </div>
+
+      <div class="card-controls">
+        <button class="btn-action" onclick="prevCard()">⬅️ 이전</button>
+        <span id="fc-counter" style="font-weight: 600; color: #E4E4E7;">1 / 10</span>
+        <button class="btn-action" onclick="nextCard()">다음 ➡️</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4지선다 퀴즈 모달 -->
+  <div id="quiz-modal" class="modal-overlay">
+    <div class="modal-box">
+      <button class="modal-close" onclick="closeQuizModal()">&times;</button>
+      <h3 id="quiz-folder-title" style="color: #9CA3AF; margin-bottom: 15px;">단어 시험</h3>
+      
+      <div id="quiz-container">
+        <div id="quiz-question" class="quiz-question">1.) 문제 apple의 뜻은?</div>
+        <div id="quiz-options" class="quiz-options">
+          <!-- 보기 버튼들 -->
+        </div>
+      </div>
+      <div id="quiz-result-area" style="display:none;">
+        <h2 style="color: #10B981; margin-bottom: 10px;">🎉 퀴즈 완료!</h2>
+        <p id="quiz-score-text" style="font-size: 1.1rem; margin-bottom: 20px;"></p>
+        <button class="btn-main" onclick="closeQuizModal()">확인</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let selectedImageBase64 = null;
+
+    // 학습 및 퀴즈용 임시 전역 변수
+    let currentFolderWords = [];
+    let currentCardIndex = 0;
+    let isCardFlipped = false;
+
+    let currentQuizIndex = 0;
+    let quizScore = 0;
+    let quizList = [];
 
     window.addEventListener('DOMContentLoaded', () => {
       renderFolders();
@@ -360,7 +468,7 @@
     }
 
     async function loadCustomTopic() {
-      const userPrompt = prompt('어떤 스타일이나 주제의 단어가 필요하신가요?\n\n예시: 고1 모의고사에서 자주 나오는 경제·사회 관련 어휘 뽑아줘');
+      const userPrompt = prompt('어떤 스타일이나 주제의 단어가 필요하신가요?\n\n예시: 과학에서 많이 나오는 고등학교 1학년 수준 단어 30개');
       if (!userPrompt) return;
 
       const title = prompt('저장할 단어장 폴더의 제목을 입력하세요:', userPrompt);
@@ -463,10 +571,12 @@
 
         folderEl.innerHTML = `
           <div class="folder-header" onclick="toggleFolder(${folder.id})">
-            <div>
-              <div class="folder-title">📑 ${folder.title} <span style="font-size:0.85rem; color:#9CA3AF; font-weight:normal;">(${folder.words.length}개 단어)</span></div>
+            <div class="folder-title">📑 ${folder.title} <span style="font-size:0.85rem; color:#9CA3AF; font-weight:normal;">(${folder.words.length}개 단어)</span></div>
+            <div class="folder-actions" onclick="event.stopPropagation()">
+              <button class="btn-action" onclick="openFlashcard(${folder.id})">📇 카드 학습</button>
+              <button class="btn-action" onclick="openQuiz(${folder.id})">📝 4지선다 퀴즈</button>
+              <button class="btn-delete-folder" onclick="deleteFolder(${folder.id}, event)">삭제</button>
             </div>
-            <button class="btn-delete-folder" onclick="deleteFolder(${folder.id}, event)">삭제</button>
           </div>
           <div id="folder-content-${folder.id}" class="folder-content" style="display: none;">
             ${wordsHtml}
@@ -475,6 +585,159 @@
 
         container.appendChild(folderEl);
       });
+    }
+
+    // --- 플래시카드 (카드 뒤집기) 기능 로직 ---
+    function openFlashcard(folderId) {
+      const folders = JSON.parse(localStorage.getItem('smart_voca_folders') || '[]');
+      const folder = folders.find(f => f.id === folderId);
+      if (!folder || folder.words.length === 0) {
+        alert('학습할 단어가 없습니다.');
+        return;
+      }
+
+      currentFolderWords = folder.words;
+      currentCardIndex = 0;
+      isCardFlipped = false;
+
+      document.getElementById('flashcard-folder-title').innerText = `📇 ${folder.title} 학습 중`;
+      document.getElementById('flashcard-modal').style.display = 'flex';
+      updateCardUI();
+    }
+
+    function updateCardUI() {
+      const item = currentFolderWords[currentCardIndex];
+      const frontEl = document.getElementById('fc-front');
+      const backEl = document.getElementById('fc-back');
+      const counterEl = document.getElementById('fc-counter');
+
+      frontEl.innerText = item.word;
+      backEl.innerText = item.meaning;
+      counterEl.innerText = `${currentCardIndex + 1} / ${currentFolderWords.length}`;
+
+      if (isCardFlipped) {
+        frontEl.style.display = 'none';
+        backEl.style.display = 'block';
+      } else {
+        frontEl.style.display = 'block';
+        backEl.style.display = 'none';
+      }
+    }
+
+    function flipCard() {
+      isCardFlipped = !isCardFlipped;
+      updateCardUI();
+    }
+
+    function nextCard() {
+      if (currentCardIndex < currentFolderWords.length - 1) {
+        currentCardIndex++;
+        isCardFlipped = false;
+        updateCardUI();
+      } else {
+        alert('마지막 카드입니다!');
+      }
+    }
+
+    function prevCard() {
+      if (currentCardIndex > 0) {
+        currentCardIndex--;
+        isCardFlipped = false;
+        updateCardUI();
+      } else {
+        alert('첫 번째 카드입니다!');
+      }
+    }
+
+    function closeFlashcardModal() {
+      document.getElementById('flashcard-modal').style.display = 'none';
+    }
+
+    // --- 4지선다 객관식 퀴즈 기능 로직 ---
+    function openQuiz(folderId) {
+      const folders = JSON.parse(localStorage.getItem('smart_voca_folders') || '[]');
+      const folder = folders.find(f => f.id === folderId);
+      if (!folder || folder.words.length < 4) {
+        alert('퀴즈를 진행하려면 최소 4개 이상의 단어가 필요합니다.');
+        return;
+      }
+
+      currentFolderWords = folder.words;
+      currentQuizIndex = 0;
+      quizScore = 0;
+
+      // 퀴즈 목록 무작위 섞기
+      quizList = [...currentFolderWords].sort(() => Math.random() - 0.5);
+
+      document.getElementById('quiz-folder-title').innerText = `📝 ${folder.title} 퀴즈`;
+      document.getElementById('quiz-container').style.display = 'block';
+      document.getElementById('quiz-result-area').style.display = 'none';
+      document.getElementById('quiz-modal').style.display = 'flex';
+
+      loadQuizQuestion();
+    }
+
+    function loadQuizQuestion() {
+      if (currentQuizIndex >= quizList.length) {
+        // 퀴즈 종료
+        document.getElementById('quiz-container').style.display = 'none';
+        document.getElementById('quiz-result-area').style.display = 'block';
+        document.getElementById('quiz-score-text').innerText = `${quizList.length}문제 중 ${quizScore}문제를 맞췄습니다!`;
+        return;
+      }
+
+      const currentItem = quizList[currentQuizIndex];
+      const questionEl = document.getElementById('quiz-question');
+      questionEl.innerText = `${currentQuizIndex + 1}.) 문제 ${currentItem.word}의 뜻은?`;
+
+      // 오답 보기 3개 추출하기
+      let otherWords = currentFolderWords.filter(w => w.word !== currentItem.word);
+      otherWords.sort(() => Math.random() - 0.5);
+      let wrongChoices = otherWords.slice(0, 3).map(w => w.meaning);
+
+      // 정답 포함 총 4개 보기 구성 후 섞기
+      let options = [currentItem.meaning, ...wrongChoices];
+      options.sort(() => Math.random() - 0.5);
+
+      const optionsContainer = document.getElementById('quiz-options');
+      optionsContainer.innerHTML = '';
+
+      options.forEach((optText, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'quiz-option-btn';
+        btn.innerText = `${idx + 1}.) ${optText}`;
+        btn.onclick = () => checkAnswer(optText, currentItem.meaning, btn, optionsContainer);
+        optionsContainer.appendChild(btn);
+      });
+    }
+
+    function checkAnswer(selected, correct, clickedBtn, container) {
+      // 중복 클릭 방지용 비활성화
+      const buttons = container.querySelectorAll('button');
+      buttons.forEach(b => b.onclick = null);
+
+      if (selected === correct) {
+        clickedBtn.classList.add('correct');
+        quizScore++;
+      } else {
+        clickedBtn.classList.add('wrong');
+        // 정답 보기 표시해주기
+        buttons.forEach(b => {
+          if (b.innerText.includes(correct)) {
+            b.classList.add('correct');
+          }
+        });
+      }
+
+      // 1.2초 후 다음 문제로 이동
+      setTimeout(() => {
+        currentQuizIndex++;
+        loadQuizQuestion();
+      }, 1200);
+    }
+
+    function closeQuizModal() {
+      document.getElementById('quiz-modal').style.display = 'none';
     }
 
     function showLoading(text) {
