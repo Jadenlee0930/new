@@ -13,9 +13,7 @@ module.exports = async function handler(req, res) {
   try {
     const { mode, category, image } = req.body;
     const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // 💡 최신 안정 버전 모델명으로 수정
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     let prompt = "";
     let contents = [];
@@ -33,8 +31,13 @@ module.exports = async function handler(req, res) {
         }
       };
 
-      prompt = `이 이미지에서 고등학교 수능/내신 대비용 영어 단어를 추출해 줘.
-      응답은 반드시 다른 설명이나 마크다운 없이 아래 JSON 배열 형식으로만 출력해 줘:
+      // 💡 모든 단어를 빠짐없이 추출하도록 프롬프트 보완
+      prompt = `이 이미지에 보이는 영어 단어 및 주요 표제어를 **하나도 빠짐없이 모두** 추출해 줘. 
+      단어가 많더라도 도중에 생략하거나 요약하지 말고 이미지 속 전체 단어 목록을 다 다뤄야 해.
+      
+      각 단어별로 품사, 정확한 한글 뜻, 그리고 수능/내신 수준의 유용한 영어 예문과 예문 해석을 함께 작성해 줘.
+      
+      응답은 반드시 다른 설명이나 마크다운 표현(예: \`\`\`json) 없이 아래 JSON 배열 형식만 출력해 줘:
       [
         {
           "word": "영어단어",
@@ -48,8 +51,8 @@ module.exports = async function handler(req, res) {
       contents = [prompt, imagePart];
 
     } else {
-      prompt = `'${category}' 주제에 어울리는 고등학교 수능 및 내신 필수 영어 단어 5개를 선정해 줘.
-      응답은 반드시 다른 설명이나 마크다운 없이 아래 JSON 배열 형식으로만 출력해 줘:
+      prompt = `'${category}' 주제에 어울리는 고등학교 수능 및 내신 필수 영어 단어 10개를 선정해 줘.
+      응답은 반드시 다른 설명 없이 아래 JSON 배열 형식으로만 출력해 줘:
       [
         {
           "word": "영어단어",
