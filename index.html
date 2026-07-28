@@ -340,10 +340,9 @@
   <script>
     let selectedImageBase64 = null;
 
-    // 학습 및 퀴즈용 임시 전역 변수
     let currentFolderWords = [];
     let currentCardIndex = 0;
-    let isShowingMeaning = false; // 현재 뜻을 보여주고 있는지 여부
+    let isShowingMeaning = false;
 
     let currentQuizIndex = 0;
     let quizScore = 0;
@@ -441,13 +440,16 @@
       const title = prompt('저장할 단어장의 제목을 입력하세요:', category);
       if (title === null) return;
 
-      showLoading(`'${category}' 단어를 AI가 생성 중입니다...`);
+      // 현재 시간에 따라 매번 다른 랜덤 시드(Random Seed) 역할을 하도록 난수 추가 요청 파라미터 구성
+      const randomSeed = Math.floor(Math.random() * 100000);
+
+      showLoading(`'${category}' 단어를 매번 새로운 구성으로 생성 중입니다...`);
 
       try {
         const response = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'preset', category: category })
+          body: JSON.stringify({ mode: 'preset', category: category, seed: randomSeed })
         });
 
         const data = await response.json();
@@ -473,13 +475,15 @@
       const title = prompt('저장할 단어장 폴더의 제목을 입력하세요:', userPrompt);
       if (title === null) return;
 
-      showLoading(`AI가 요청하신 스타일(${userPrompt})에 맞춰 단어를 생성 중입니다...`);
+      const randomSeed = Math.floor(Math.random() * 100000);
+
+      showLoading(`AI가 요청하신 스타일(${userPrompt})에 맞춰 새로운 단어들을 생성 중입니다...`);
 
       try {
         const response = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'preset', category: userPrompt })
+          body: JSON.stringify({ mode: 'preset', category: userPrompt, seed: randomSeed })
         });
 
         const data = await response.json();
@@ -586,7 +590,7 @@
       });
     }
 
-    // --- 플래시카드 (카드 넘기기) 기능 로직 ---
+    // --- 플래시카드 기능 로직 ---
     function openFlashcard(folderId) {
       const folders = JSON.parse(localStorage.getItem('smart_voca_folders') || '[]');
       const folder = folders.find(f => f.id === folderId);
@@ -611,13 +615,11 @@
       const counterEl = document.getElementById('fc-counter');
 
       if (!isShowingMeaning) {
-        // 영어 단어 표시 상태
         frontEl.innerText = item.word;
         frontEl.style.color = '#FFFFFF';
         frontEl.style.fontSize = '2rem';
         subHintEl.innerText = '👆 터치하면 한국어 뜻이 나옵니다';
       } else {
-        // 한국어 뜻 표시 상태
         frontEl.innerText = item.meaning;
         frontEl.style.color = '#818CF8';
         frontEl.style.fontSize = '1.6rem';
@@ -629,11 +631,9 @@
 
     function handleCardClick() {
       if (!isShowingMeaning) {
-        // 첫 번째 클릭: 뜻 보여주기
         isShowingMeaning = true;
         updateCardUI();
       } else {
-        // 두 번째 클릭: 다음 카드로 넘어가기
         isShowingMeaning = false;
         if (currentCardIndex < currentFolderWords.length - 1) {
           currentCardIndex++;
@@ -676,7 +676,7 @@
       document.getElementById('flashcard-modal').style.display = 'none';
     }
 
-    // --- 4지선다 객관식 퀴즈 기능 로직 ---
+    // --- 4지선다 퀴즈 기능 로직 ---
     function openQuiz(folderId) {
       const folders = JSON.parse(localStorage.getItem('smart_voca_folders') || '[]');
       const folder = folders.find(f => f.id === folderId);
