@@ -149,7 +149,6 @@
     }
     .folder-header:hover { background: #323238; }
     .folder-title { font-size: 1.1rem; font-weight: 700; color: #FFFFFF; }
-    .folder-info { font-size: 0.8rem; color: #9CA3AF; margin-top: 4px; }
     .btn-delete-folder {
       background: #451A03;
       color: #F87171;
@@ -221,8 +220,8 @@
 
       <!-- 직접 입력 맞춤 주제 영역 -->
       <div class="custom-topic-box">
-        <p style="font-size: 0.9rem; font-weight: 600; color: #E4E4E7; margin-bottom: 8px;">✨ 원하는 스타일/주제가 따로 있으신가요?</p>
-        <p style="font-size: 0.8rem; color: #9CA3AF; margin-bottom: 10px;">예: "해리포터 책에 나오는 어려운 단어 위주로 뽑아줘"</p>
+        <p style="font-size: 0.9rem; font-weight: 600; color: #E4E4E7; margin-bottom: 8px;">✨ 원하는 스타일이나 주제가 따로 있으신가요?</p>
+        <p style="font-size: 0.8rem; color: #9CA3AF; margin-bottom: 10px;">예시: "고1 모의고사에서 자주 나오는 경제·사회 관련 어휘 뽑아줘"</p>
         <button class="btn-main" onclick="loadCustomTopic()" style="background: #27272A; border: 1px solid #4F46E5;">💬 AI에게 직접 주제 요청하기</button>
       </div>
     </div>
@@ -361,7 +360,7 @@
     }
 
     async function loadCustomTopic() {
-      const userPrompt = prompt('어떤 스타일이나 주제의 단어가 필요하신가요?\n\n예: 해리포터 책에 나오는 어려운 단어들 위주로 뽑아줘');
+      const userPrompt = prompt('어떤 스타일이나 주제의 단어가 필요하신가요?\n\n예시: 고1 모의고사에서 자주 나오는 경제·사회 관련 어휘 뽑아줘');
       if (!userPrompt) return;
 
       const title = prompt('저장할 단어장 폴더의 제목을 입력하세요:', userPrompt);
