@@ -90,6 +90,14 @@
     }
     .preset-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
 
+    .custom-topic-box {
+      background: #18181B;
+      border: 1px solid var(--border);
+      padding: 16px;
+      border-radius: 12px;
+      margin-top: 10px;
+    }
+
     .btn-main {
       width: 100%;
       padding: 14px;
@@ -186,7 +194,7 @@
   <main>
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('ocr', event)">📷 사진으로 단어 추출</button>
-      <button class="tab-btn" onclick="switchTab('preset', event)">📚 고교 필수 단어장</button>
+      <button class="tab-btn" onclick="switchTab('preset', event)">📚 맞춤 단어장 생성</button>
     </div>
 
     <!-- 탭 1: 사진 OCR 모드 -->
@@ -200,14 +208,22 @@
       <button class="btn-main" onclick="processOCR()">사진에서 단어 추출하기</button>
     </div>
 
-    <!-- 탭 2: 고교 필수 단어 테마별 생성 -->
+    <!-- 탭 2: 단어장 생성 테마 및 맞춤 주제 -->
     <div id="panel-preset" class="panel">
-      <p style="margin-bottom: 12px; font-weight: 600; color: #9CA3AF;">원하는 주제의 고교 필수 단어를 클릭하세요:</p>
+      <p style="margin-bottom: 12px; font-weight: 600; color: #9CA3AF;">추천 주제를 선택하거나, 원하는 스타일을 직접 만들어보세요:</p>
+      
       <div class="preset-btns">
         <div class="preset-btn" onclick="loadPreset('수능 빈출 핵심 단어')">🔥 수능 빈출 핵심</div>
         <div class="preset-btn" onclick="loadPreset('고교 필수 다의어')">💡 필수 다의어</div>
         <div class="preset-btn" onclick="loadPreset('학술 및 수능 독해 단어')">🎓 학술/독해 어휘</div>
         <div class="preset-btn" onclick="loadPreset('수능 독해 접속어 및 추상어')">🧩 추상 어휘</div>
+      </div>
+
+      <!-- 직접 입력 맞춤 주제 영역 -->
+      <div class="custom-topic-box">
+        <p style="font-size: 0.9rem; font-weight: 600; color: #E4E4E7; margin-bottom: 8px;">✨ 원하는 스타일/주제가 따로 있으신가요?</p>
+        <p style="font-size: 0.8rem; color: #9CA3AF; margin-bottom: 10px;">예: "해리포터 책에 나오는 어려운 단어 위주로 뽑아줘"</p>
+        <button class="btn-main" onclick="loadCustomTopic()" style="background: #27272A; border: 1px solid #4F46E5;">💬 AI에게 직접 주제 요청하기</button>
       </div>
     </div>
 
@@ -344,6 +360,38 @@
       }
     }
 
+    async function loadCustomTopic() {
+      const userPrompt = prompt('어떤 스타일이나 주제의 단어가 필요하신가요?\n\n예: 해리포터 책에 나오는 어려운 단어들 위주로 뽑아줘');
+      if (!userPrompt) return;
+
+      const title = prompt('저장할 단어장 폴더의 제목을 입력하세요:', userPrompt);
+      if (title === null) return;
+
+      showLoading(`AI가 요청하신 스타일(${userPrompt})에 맞춰 단어를 생성 중입니다...`);
+
+      try {
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'preset', category: userPrompt })
+        });
+
+        const data = await response.json();
+        hideLoading();
+
+        if (!response.ok) {
+          alert(`오류 발생 (${response.status}): ` + (data.error || '서버 오류'));
+          return;
+        }
+
+        saveFolderToStorage(title || userPrompt, data.result);
+
+      } catch (err) {
+        hideLoading();
+        alert(`통신 오류 발생: ${err.message || '서버 연결 실패'}`);
+      }
+    }
+
     function saveFolderToStorage(title, words) {
       if (!Array.isArray(words) || words.length === 0) {
         alert('추출된 단어가 없습니다.');
@@ -390,7 +438,7 @@
       const folders = JSON.parse(localStorage.getItem('smart_voca_folders') || '[]');
 
       if (folders.length === 0) {
-        container.innerHTML = '<p style="text-align:center; padding: 30px; color: #6B7280;">저장된 단어장이 없습니다.<br>사진을 찍거나 추천 단어를 만들어 보세요!</p>';
+        container.innerHTML = '<p style="text-align:center; padding: 30px; color: #6B7280;">저장된 단어장이 없습니다.<br>사진을 찍거나 추천/맞춤 단어를 만들어 보세요!</p>';
         return;
       }
 
