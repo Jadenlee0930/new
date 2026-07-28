@@ -195,7 +195,7 @@
 
     #preview-img { max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 10px; display: none; margin-left: auto; margin-right: auto; }
 
-    /* --- 모달(팝업) 스타일 (플래시카드 및 퀴즈용) --- */
+    /* --- 모달(팝업) 스타일 --- */
     .modal-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.85);
@@ -219,11 +219,11 @@
       height: 220px; border-radius: 16px;
       display: flex; flex-direction: column; justify-content: center; align-items: center;
       cursor: pointer; margin: 20px 0; padding: 20px;
-      transition: transform 0.3s, border-color 0.3s;
+      transition: transform 0.2s, border-color 0.2s;
     }
     .flashcard:hover { border-color: var(--primary); }
+    .flashcard:active { transform: scale(0.98); }
     .flashcard .front-text { font-size: 2rem; font-weight: 700; color: #FFFFFF; }
-    .flashcard .back-text { font-size: 1.5rem; font-weight: 600; color: #818CF8; display: none; margin-top: 10px; }
     .flashcard .sub-hint { font-size: 0.85rem; color: #6B7280; margin-top: 15px; }
 
     .card-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; }
@@ -304,10 +304,9 @@
       <button class="modal-close" onclick="closeFlashcardModal()">&times;</button>
       <h3 id="flashcard-folder-title" style="color: #9CA3AF; margin-bottom: 10px;">단어장 학습</h3>
       
-      <div class="flashcard" onclick="flipCard()">
+      <div class="flashcard" onclick="nextCard()">
         <div id="fc-front" class="front-text">apple</div>
-        <div id="fc-back" class="back-text">사과</div>
-        <div class="sub-hint">👆 카드를 누르면 뜻이 뒤집힙니다</div>
+        <div class="sub-hint">👆 터치하면 바로 다음 카드로 넘어갑니다</div>
       </div>
 
       <div class="card-controls">
@@ -344,7 +343,6 @@
     // 학습 및 퀴즈용 임시 전역 변수
     let currentFolderWords = [];
     let currentCardIndex = 0;
-    let isCardFlipped = false;
 
     let currentQuizIndex = 0;
     let quizScore = 0;
@@ -587,7 +585,7 @@
       });
     }
 
-    // --- 플래시카드 (카드 뒤집기) 기능 로직 ---
+    // --- 플래시카드 (카드 넘기기) 기능 로직 ---
     function openFlashcard(folderId) {
       const folders = JSON.parse(localStorage.getItem('smart_voca_folders') || '[]');
       const folder = folders.find(f => f.id === folderId);
@@ -598,7 +596,6 @@
 
       currentFolderWords = folder.words;
       currentCardIndex = 0;
-      isCardFlipped = false;
 
       document.getElementById('flashcard-folder-title').innerText = `📇 ${folder.title} 학습 중`;
       document.getElementById('flashcard-modal').style.display = 'flex';
@@ -608,41 +605,26 @@
     function updateCardUI() {
       const item = currentFolderWords[currentCardIndex];
       const frontEl = document.getElementById('fc-front');
-      const backEl = document.getElementById('fc-back');
       const counterEl = document.getElementById('fc-counter');
 
       frontEl.innerText = item.word;
-      backEl.innerText = item.meaning;
       counterEl.innerText = `${currentCardIndex + 1} / ${currentFolderWords.length}`;
-
-      if (isCardFlipped) {
-        frontEl.style.display = 'none';
-        backEl.style.display = 'block';
-      } else {
-        frontEl.style.display = 'block';
-        backEl.style.display = 'none';
-      }
-    }
-
-    function flipCard() {
-      isCardFlipped = !isCardFlipped;
-      updateCardUI();
     }
 
     function nextCard() {
       if (currentCardIndex < currentFolderWords.length - 1) {
         currentCardIndex++;
-        isCardFlipped = false;
         updateCardUI();
       } else {
-        alert('마지막 카드입니다!');
+        alert('마지막 카드입니다! 처음으로 돌아갑니다.');
+        currentCardIndex = 0;
+        updateCardUI();
       }
     }
 
     function prevCard() {
       if (currentCardIndex > 0) {
         currentCardIndex--;
-        isCardFlipped = false;
         updateCardUI();
       } else {
         alert('첫 번째 카드입니다!');
@@ -666,7 +648,6 @@
       currentQuizIndex = 0;
       quizScore = 0;
 
-      // 퀴즈 목록 무작위 섞기
       quizList = [...currentFolderWords].sort(() => Math.random() - 0.5);
 
       document.getElementById('quiz-folder-title').innerText = `📝 ${folder.title} 퀴즈`;
@@ -679,7 +660,6 @@
 
     function loadQuizQuestion() {
       if (currentQuizIndex >= quizList.length) {
-        // 퀴즈 종료
         document.getElementById('quiz-container').style.display = 'none';
         document.getElementById('quiz-result-area').style.display = 'block';
         document.getElementById('quiz-score-text').innerText = `${quizList.length}문제 중 ${quizScore}문제를 맞췄습니다!`;
@@ -690,12 +670,10 @@
       const questionEl = document.getElementById('quiz-question');
       questionEl.innerText = `${currentQuizIndex + 1}.) 문제 ${currentItem.word}의 뜻은?`;
 
-      // 오답 보기 3개 추출하기
       let otherWords = currentFolderWords.filter(w => w.word !== currentItem.word);
       otherWords.sort(() => Math.random() - 0.5);
       let wrongChoices = otherWords.slice(0, 3).map(w => w.meaning);
 
-      // 정답 포함 총 4개 보기 구성 후 섞기
       let options = [currentItem.meaning, ...wrongChoices];
       options.sort(() => Math.random() - 0.5);
 
@@ -712,7 +690,6 @@
     }
 
     function checkAnswer(selected, correct, clickedBtn, container) {
-      // 중복 클릭 방지용 비활성화
       const buttons = container.querySelectorAll('button');
       buttons.forEach(b => b.onclick = null);
 
@@ -721,7 +698,6 @@
         quizScore++;
       } else {
         clickedBtn.classList.add('wrong');
-        // 정답 보기 표시해주기
         buttons.forEach(b => {
           if (b.innerText.includes(correct)) {
             b.classList.add('correct');
@@ -729,7 +705,6 @@
         });
       }
 
-      // 1.2초 후 다음 문제로 이동
       setTimeout(() => {
         currentQuizIndex++;
         loadQuizQuestion();
